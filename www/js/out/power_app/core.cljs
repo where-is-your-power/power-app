@@ -11,6 +11,7 @@
          :deviceready false
          :state :score
          :points 0
+         :questions []
          :assignment {:title "Zet alle lampen in de woonkamer aan"
                       :description "Lorem ipsum dolor sit amet,
                       consectetur adipiscing elit. Nullam mi leo, varius
@@ -29,6 +30,9 @@
 
 (defonce server-address "http://localhost:8000")
 
+(defn error-handler [{:keys [status status-text]}]
+  (.log js/console (str "something bad happened: " status " " status-text)))
+
 (defn login [username] ;; todo trim
   (GET (str server-address "/user/" (-> username
                                         clojure.string/trim
@@ -36,9 +40,23 @@
        {:handler (fn [result]
                    (let [r (t/reader :json)
                          v (t/read r result)]
+                     (.log js/console "TESSTT")
                      (swap! app-state assoc :user (get v :user)
                                             :points (get v :points))))
-        :error (fn [error] (.log js/console "ERROR"))
+        :error-handler error-handler
+        }))
+
+(defn get-questions [username]
+  (.log js/console "FOFOFOFOF")
+  (GET (str server-address "/assignment/questions?username=" (-> username
+                                        clojure.string/trim
+                                        clojure.string/lower-case))
+       {:handler (fn [result]
+                   (let [r (t/reader :json)
+                         v (t/read r result)]
+                     (.log js/console (prn-str v))
+                     (swap! app-state assoc :questions v)))
+        :error-handler error-handler
         }))
 
 (.addEventListener
@@ -105,12 +123,12 @@
                  #js {:className "btn btn-primary"
                       :onClick (fn [e]
                                  (.preventDefault e)
+                                 (.log js/console "HIERRR")
+                                 (get-questions (:user @root))
                                  (om/transact! root
                                                #(assoc %
                                                   :state
-                                                  next-state))
-                                 (GET "https://live.mpare.net/users.json"
-                                      {:handler handler}))}
+                                                  next-state)))}
                  "Volgende opdracht"))))))))
 
 
@@ -151,43 +169,61 @@
   (reify
     om/IRenderState
     (render-state [_ _]
-      (dom/div nil
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "200%"}} "Opdracht 51 selectie"))
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "250%"}} "Ben je thuis?"))
-       (dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
-               (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! root
-                                               #( assoc %
-                                                  :state
-                                                  next-state)))}
-                 "Ja")
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! root
-                                               #( assoc %
-                                                  :state
-                                                  next-state)))}
-                 "Nee"))))))))
+      (let [points (inc (:points root))
+            open-questions (filter (comp nil? :answer) (:questions root))
+            question (first open-questions)
+            last? (< (count open-questions) 2)]
+        (dom/div nil
+                 (dom/div
+                  #js {:className "row"
+                       :style #js {:width "100%"
+                                   :text-align "center"}}
+                  (dom/h1 #js {:className "col-xs-12"
+                               :style #js {:font-size "200%"}} (str "Opdracht "
+                                                                    points
+                                                                    " selectie")))
+                 (dom/div
+                  #js {:className "row"
+                       :style #js {:width "100%"
+                                   :text-align "center"}}
+                  (dom/h1 #js {:className "col-xs-12"
+                               :style #js {:font-size "250%"}} (:question question)))
+                 (dom/div
+                  #js {:className "row"}
+                  (dom/div
+                   #js {:className "col-xs-12"}
+                   (dom/div
+                    #js {:className "btn-group btn-group-justified"}
+                    (dom/a
+                     #js {:className "btn btn-primary"
+                          :onClick (fn [e]
+                                     (.preventDefault e)
+                                     (om/transact! question
+                                                   #( assoc %
+                                                      :answer
+                                                      true))
+                                     (when last?
+                                       (om/transact!
+                                        root
+                                        #(assoc %
+                                           :state
+                                           next-state))))}
+                     "Ja")
+                    (dom/a
+                     #js {:className "btn btn-primary"
+                          :onClick (fn [e]
+                                     (.preventDefault e)
+                                     (om/transact! question
+                                                   #( assoc %
+                                                      :answer
+                                                      false))
+                                     (when last?
+                                       (om/transact!
+                                        root
+                                        #(assoc %
+                                           :state
+                                           next-state))))}
+                     "Nee")))))))))
 
 
 (defn explain-assignment-component [root owner {:keys [next-state]}]
@@ -247,7 +283,7 @@
             nil
             (dom/i #js {:className "fa fa-bolt"})
             " "
-            "Where is my power!")
+            "Power-app!")
         (if (not user)
           (om/build login-component root)
           (om/build (:component (get state-machine state)) root
