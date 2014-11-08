@@ -73,7 +73,6 @@
         #js {:className "form-horizontal"}
         (dom/fieldset
          nil
-         (dom/legend nil "Login")
          (dom/div
           #js {:className "form-group"}
           (dom/div
@@ -264,51 +263,61 @@
     om/IWillMount
     (will-mount [_]
       (go
+        (GET (str server-address "/smallfact")
+             {:handler (fn [result] (om/transact! root #(assoc % :smallfact result)))})
         (<! (timeout 2000))
-        (om/transact! root #(assoc-in % [:assignment :result] true))
-        (GET (str server-address "/assignment/success/" (get @root :user)))
-        (login (get @root :user))))
+        (let [result (> (Math/random) 0.1)]
+          (om/transact! root #(assoc-in % [:assignment :result] result))
+          (if result
+            (GET (str server-address "/assignment/success/" (get @root :user)))
+            (GET (str server-address "/assignment/fail/" (get @root :user))))
+          (login (get @root :user)))))
     om/IRenderState
     (render-state [_ _]
       (dom/div nil
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "200%"}} (str "Resultaat opdracht")))
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/div #js {:className "col-xs-12"}
-                 (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :description]))
-                 (dom/p nil
-                        (let [result (get-in root [:assignment :result])]
-                          (if (nil? result)
-                            (dom/i #js {:className "fa fa-circle-o-notch fa-spin"
-                                        :style #js {:font-size "300%"}})
-                            (if result
-                              (dom/i #js {:className "fa fa-check"
-                                          :style #js {:font-size "300%"}})
-                              (dom/i #js {:className "fa fa-remove"
-                                        :style #js {:font-size "300%"}}))))
-                        )))
-       (dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
                (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! root
-                                               #( assoc %
-                                                  :state
-                                                  next-state)))}
-                 "Nieuwe opdracht"))))))))
+                #js {:className "row"
+                     :style #js {:width "100%"
+                                 :text-align "center"}}
+                (dom/h1 #js {:className "col-xs-12"
+                             :style #js {:font-size "200%"}} (str "Resultaat opdracht")))
+               (dom/div
+                #js {:className "row"
+                     :style #js {:width "100%"
+                                 :text-align "center"}}
+                (dom/div #js {:className "col-xs-12"}
+                         (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :description]))
+                         (dom/p nil
+                                (let [result (get-in root [:assignment :result])]
+                                  (if (nil? result)
+                                    (dom/i #js {:className "fa fa-circle-o-notch fa-spin"
+                                                :style #js {:font-size "300%"}})
+                                    (if result
+                                      (dom/i #js {:className "fa fa-check"
+                                                  :style #js {:font-size "300%"}})
+                                      (dom/i #js {:className "fa fa-remove"
+                                                  :style #js {:font-size "300%"}}))))
+                                )))
+               (dom/div
+                #js {:className "row"}
+                (dom/div
+                 #js {:className "col-xs-12"}
+                 (dom/p nil (:smallfact root))))
+               (dom/div
+                #js {:className "row"}
+                (dom/div
+                 #js {:className "col-xs-12"}
+                 (dom/div
+                  #js {:className "btn-group btn-group-justified"}
+                  (dom/a
+                   #js {:className "btn btn-primary"
+                        :onClick (fn [e]
+                                   (.preventDefault e)
+                                   (om/transact! root
+                                                 #( assoc %
+                                                    :state
+                                                    next-state)))}
+                   "OK"))))))))
 
 ;; score -> new assignment -> current assignment -> explain assignment -> score
 
@@ -338,11 +347,14 @@
           (om/build login-component root)
           (om/build (:component (get state-machine state)) root
                     {:opts {:next-state (:next-state (get state-machine state))}}))
-        (dom/div
+        ))))
+ app-state
+ {:target (. js/document (getElementById "app"))})
+
+
+(comment (dom/div
          #js {:className "row"}
          (dom/div
           #js {:className "col-xs-12"}
           (dom/hr nil)
-          (pr-str root)))))))
- app-state
- {:target (. js/document (getElementById "app"))})
+          (pr-str root))))
