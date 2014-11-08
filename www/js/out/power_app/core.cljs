@@ -148,12 +148,6 @@
                      :style #js {:width "100%"
                                  :text-align "center"}}
                 (dom/h1 #js {:className "col-xs-12"
-                             :style #js {:font-size "200%"}} (str "Opdracht " (inc (:points root)))))
-               (dom/div
-                #js {:className "row"
-                     :style #js {:width "100%"
-                                 :text-align "center"}}
-                (dom/h1 #js {:className "col-xs-12"
                              :style #js {:font-size "250%"}}
                         (get-in root [:assignment :description])))
                (dom/div
@@ -197,9 +191,7 @@
                        :style #js {:width "100%"
                                    :text-align "center"}}
                   (dom/h1 #js {:className "col-xs-12"
-                               :style #js {:font-size "200%"}} (str "Opdracht "
-                                                                    points
-                                                                    " selectie")))
+                               :style #js {:font-size "200%"}} (str "Opdracht selectie")))
                  (dom/div
                   #js {:className "row"
                        :style #js {:width "100%"
@@ -269,6 +261,13 @@
 
 (defn explain-assignment-component [root owner {:keys [next-state]}]
   (reify
+    om/IWillMount
+    (will-mount [_]
+      (go
+        (<! (timeout 2000))
+        (om/transact! root #(assoc-in % [:assignment :result] true))
+        (GET (str server-address "/assignment/success/" (get @root :user)))
+        (login (get @root :user))))
     om/IRenderState
     (render-state [_ _]
       (dom/div nil
@@ -277,15 +276,24 @@
              :style #js {:width "100%"
                          :text-align "center"}}
         (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "200%"}} (str "Uitleg opdracht "
-                                                          (inc (:points root)))))
+                     :style #js {:font-size "200%"}} (str "Resultaat opdracht")))
        (dom/div
         #js {:className "row"
              :style #js {:width "100%"
                          :text-align "center"}}
         (dom/div #js {:className "col-xs-12"}
                  (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :description]))
-                 (dom/p nil "")))
+                 (dom/p nil
+                        (let [result (get-in root [:assignment :result])]
+                          (if (nil? result)
+                            (dom/i #js {:className "fa fa-circle-o-notch fa-spin"
+                                        :style #js {:font-size "300%"}})
+                            (if result
+                              (dom/i #js {:className "fa fa-check"
+                                          :style #js {:font-size "300%"}})
+                              (dom/i #js {:className "fa fa-remove"
+                                        :style #js {:font-size "300%"}}))))
+                        )))
        (dom/div
               #js {:className "row"}
               (dom/div
