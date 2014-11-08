@@ -25,12 +25,16 @@
   (let [trimmed (-> username
                     clojure.string/trim
                     clojure.string/lower-case)]
-    (GET (str server-address "/user/" trimmed)
-         {:handler (fn [result]
-                     (swap! app-state assoc :user trimmed
-                            :name (get result :name)
-                            :points (get result :points)))
-          :error-handler error-handler})))
+    (when ((comp not empty?) trimmed)
+      (GET (str server-address "/user/" trimmed)
+           {:handler (fn [result]
+                       (swap! app-state assoc :user trimmed
+                              :name (get result :name)
+                              :points (get result :points)))
+            :error-handler error-handler})
+      (GET (str server-address "/leaderboard/3")
+           {:handler (fn [result]
+                       (swap! app-state assoc :leaderboard result))}))))
 
 (defn get-questions [username]
   (.log js/console "FOFOFOFOF")
@@ -79,8 +83,7 @@
            #js {:className "col-xs-12"}
            (dom/input #js {:ref "name"
                            :className "form-control"
-                           :placeholder "Naam"
-                           :value "Marieke"})))
+                           :placeholder "Naam"})))
          (dom/div
           #js {:className "form-group"}
           (dom/div
@@ -105,29 +108,41 @@
     om/IRenderState
     (render-state [_ _]
       (dom/div nil
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "1200%"}} (:points root)))
-       (dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
                (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (.log js/console "HIERRR")
-                                 (get-questions (:user @root))
-                                 (om/transact! root
-                                               #(assoc %
-                                                  :state
-                                                  next-state)))}
-                 "Volgende opdracht"))))))))
+                #js {:className "row"
+                     :style #js {:width "100%"
+                                 :text-align "center"}}
+                (dom/h1 #js {:className "col-xs-12"
+                             :style #js {:font-size "1200%"}} (:points root)))
+
+               (dom/div
+                #js {:className "row"}
+                (dom/div
+                 #js {:className "col-xs-12"}
+                 (dom/div
+                  #js {:className "btn-group btn-group-justified"}
+                  (dom/a
+                   #js {:className "btn btn-primary"
+                        :onClick (fn [e]
+                                   (.preventDefault e)
+                                   (.log js/console "HIERRR")
+                                   (get-questions (:user @root))
+                                   (om/transact! root
+                                                 #(assoc %
+                                                    :state
+                                                    next-state)))}
+                   "Volgende opdracht"))))
+               (apply dom/div nil
+                      (map #(dom/div
+                             #js {:className "row"
+                                  :style #js {:width "100%"
+                                              :text-align "left"}}
+                             (dom/p #js {:className "col-xs-12"
+                                         :style #js {:font-size "150%"}}
+                                    (str (:name %)
+                                         " (" (:points %) ")"
+                                         )))
+                           (:leaderboard root)))))))
 
 
 (defn current-assignment-component [root owner {:keys [next-state]}]
