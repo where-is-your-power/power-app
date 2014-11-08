@@ -24,6 +24,11 @@
         #js {:className "container"}
         (dom/div
          #js {:className "row"}
+         (dom/div
+          #js {:className "col-xs-12"}
+          (dom/i #js {:className "fa fa-home"})))
+        (dom/div
+         #js {:className "row"}
          (dom/div #js {:className "col-xs-6"} "Test Links")
          (dom/div #js {:className "col-xs-6"} "Test Rechts"))
         (dom/div
