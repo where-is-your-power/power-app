@@ -14,7 +14,6 @@
  (fn []
    (swap! app-state #(assoc % :deviceready true))))
 
-
 (om/root
  (fn [app owner]
    (reify

@@ -7,7 +7,10 @@
   :source-paths ["src/cljs"]
 
   :dependencies [[org.clojure/clojure "1.6.0"]
+                 [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/clojurescript "0.0-2371" :scope "provided"]
+                 [com.cognitect/transit-cljs "0.8.188"]
+                 [cljs-ajax "0.3.3"]
                  [om "0.7.3"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]]
