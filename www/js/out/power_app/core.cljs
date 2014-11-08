@@ -21,6 +21,9 @@
         (render [_]
           (dom/div
            nil
+           (dom/button
+            #js {:className "btn btn-primary"}
+            "Test knop")
            (dom/h1 nil (:text app))
            (pr-str app)))))
     app-state
