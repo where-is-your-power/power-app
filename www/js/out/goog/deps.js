@@ -57,4 +57,5 @@ goog.addDependency("net/xhrmanager.js", ['goog.net.XhrManager', 'goog.net.XhrMan
 goog.addDependency("uri/uri.js", ['goog.Uri', 'goog.Uri.QueryData'], ['goog.array', 'goog.string', 'goog.structs', 'goog.structs.Map', 'goog.uri.utils', 'goog.uri.utils.ComponentIndex', 'goog.uri.utils.StandardQueryParam']);
 goog.addDependency("string/stringbuffer.js", ['goog.string.StringBuffer'], []);
 goog.addDependency("math/long.js", ['goog.math.Long'], []);
+goog.addDependency("async/nexttick.js", ['goog.async.nextTick', 'goog.async.throwException'], ['goog.debug.entryPointRegistry', 'goog.functions']);
 goog.addDependency("ui/idgenerator.js", ['goog.ui.IdGenerator'], []);

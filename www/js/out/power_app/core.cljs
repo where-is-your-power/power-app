@@ -1,5 +1,7 @@
 (ns power-app.core
+  (:require-macros [cljs.core.async.macros :refer [go go-loop alt!]])
   (:require [om.core :as om :include-macros true]
+            [cljs.core.async :refer [put! <! >! chan timeout]]
             [om.dom :as dom :include-macros true]
             [ajax.core :refer [GET POST]]
             [cognitect.transit :as t]))
@@ -12,52 +14,46 @@
          :state :score
          :points 0
          :questions []
-         :assignment {:title "Zet alle lampen in de woonkamer aan"
-                      :description "Lorem ipsum dolor sit amet,
-                      consectetur adipiscing elit. Nullam mi leo, varius
-                      cursus ipsum eu, vehicula tincidunt massa. Nulla
-                      et erat vel tellus porttitor malesuada quis quis
-                      magna. Curabitur et pellentesque urna. Aliquam
-                      tristique dolor erat, quis feugiat mauris rhoncus
-                      non. Quisque tincidunt euismod enim, id luctus
-                      arcu. Aliquam erat volutpat. Nulla egestas purus
-                      ligula, id luctus velit mollis sollicitudin. Sed
-                      suscipit et nisl quis ullamcorper. Proin convallis
-                      auctor iaculis. Donec nec ligula rutrum, vehicula
-                      erat vel, fermentum lorem. " }
-         :settings {:period :short
-                    :difficulty :easy}}))
+         :assignment {}}))
 
-(defonce server-address "http://localhost:8000")
+(defonce server-address "http://131.211.252.61:8080")
 
 (defn error-handler [{:keys [status status-text]}]
   (.log js/console (str "something bad happened: " status " " status-text)))
 
 (defn login [username] ;; todo trim
-  (GET (str server-address "/user/" (-> username
-                                        clojure.string/trim
-                                        clojure.string/lower-case))
-       {:handler (fn [result]
-                   (let [r (t/reader :json)
-                         v (t/read r result)]
-                     (.log js/console "TESSTT")
-                     (swap! app-state assoc :user (get v :user)
-                                            :points (get v :points))))
-        :error-handler error-handler
-        }))
+  (let [trimmed (-> username
+                    clojure.string/trim
+                    clojure.string/lower-case)]
+    (GET (str server-address "/user/" trimmed)
+         {:handler (fn [result]
+                     (swap! app-state assoc :user trimmed
+                            :name (get result :name)
+                            :points (get result :points)))
+          :error-handler error-handler})))
 
 (defn get-questions [username]
   (.log js/console "FOFOFOFOF")
-  (GET (str server-address "/assignment/questions?username=" (-> username
-                                        clojure.string/trim
-                                        clojure.string/lower-case))
+  (GET (str server-address "/assignment/new/" username)
        {:handler (fn [result]
-                   (let [r (t/reader :json)
-                         v (t/read r result)]
-                     (.log js/console (prn-str v))
-                     (swap! app-state assoc :questions v)))
+                   (.log js/console (prn-str result))
+                   (swap! app-state assoc :assignment result)
+                   (swap! app-state assoc-in [:assignment :begin] (js/Date.)))
         :error-handler error-handler
         }))
+
+(defn format-number [s] (str (when (<= (count (str s)) 1) "0") s))
+
+(defn calculate-duration [ms]
+  (let [minutes (Math/floor (/ ms
+                               (* 1000 60)))
+        seconds (Math/floor (/ (- ms
+                                  (* minutes 1000 60))
+                               (* 1000)))
+        milli-seconds (- ms
+                         (* minutes 1000 60)
+                         (* seconds 1000))]
+    [minutes seconds milli-seconds]))
 
 (.addEventListener
  js/document
@@ -82,7 +78,8 @@
            #js {:className "col-xs-12"}
            (dom/input #js {:ref "name"
                            :className "form-control"
-                           :placeholder "Naam"})))
+                           :placeholder "Naam"
+                           :value "Marieke"})))
          (dom/div
           #js {:className "form-group"}
           (dom/div
@@ -134,43 +131,62 @@
 
 (defn current-assignment-component [root owner {:keys [next-state]}]
   (reify
+    om/IWillMount
+    (will-mount [_]
+      (go-loop
+        []
+        (<! (timeout 500))
+        (om/refresh! owner)
+        (recur)))
     om/IRenderState
     (render-state [_ _]
       (dom/div nil
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "200%"}} "Opdracht 51"))
-       (dom/div
-        #js {:className "row"
-             :style #js {:width "100%"
-                         :text-align "center"}}
-        (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "250%"}} "Zet alle lampen in de woonkamer aan."))
-       (dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
                (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! root
-                                               #(assoc %
-                                                  :state
-                                                  next-state)))}
-                 "Klaar (15:12)"))))))))
+                #js {:className "row"
+                     :style #js {:width "100%"
+                                 :text-align "center"}}
+                (dom/h1 #js {:className "col-xs-12"
+                             :style #js {:font-size "200%"}} (str "Opdracht " (inc (:points root)))))
+               (dom/div
+                #js {:className "row"
+                     :style #js {:width "100%"
+                                 :text-align "center"}}
+                (dom/h1 #js {:className "col-xs-12"
+                             :style #js {:font-size "250%"}}
+                        (get-in root [:assignment :description])))
+               (dom/div
+                #js {:className "row"}
+                (dom/div
+                 #js {:className "col-xs-12"}
+                 (dom/div
+                  #js {:className "btn-group btn-group-justified"}
+                  (dom/a
+                   #js {:className "btn btn-primary"
+                        :onClick (fn [e]
+                                   (.preventDefault e)
+                                   (om/transact! root
+                                                 #(assoc %
+                                                    :state
+                                                    next-state))
+                                   (om/transact! root
+                                                 #(assoc-in % [:assignment :end]
+                                                            (js/Date.))))}
+                   (let [[minutes seconds _]
+                         (calculate-duration
+                          (- (get-in root [:assignment :finish-before])
+                             (.getTime (js/Date.))))]
+                     (str "Klaar ("
+                          (format-number minutes)
+                          ":"
+                          (format-number seconds)
+                          ")"))))))))))
 
 (defn new-assignment-component [root owner {:keys [next-state]}]
   (reify
     om/IRenderState
     (render-state [_ _]
       (let [points (inc (:points root))
-            open-questions (filter (comp nil? :answer) (:questions root))
+            open-questions (filter (comp nil? :answer) (get-in root [:assignment :questions]))
             question (first open-questions)
             last? (< (count open-questions) 2)]
         (dom/div nil
@@ -198,31 +214,54 @@
                      #js {:className "btn btn-primary"
                           :onClick (fn [e]
                                      (.preventDefault e)
-                                     (om/transact! question
-                                                   #( assoc %
-                                                      :answer
-                                                      true))
-                                     (when last?
-                                       (om/transact!
-                                        root
-                                        #(assoc %
-                                           :state
-                                           next-state))))}
+                                     (if (not= true (:requiredAnswer @question))
+                                       (get-questions (:user @root))
+                                       (do
+                                         (om/transact! question
+                                                       #(assoc %
+                                                          :answer
+                                                          true))
+                                         (when last?
+                                           (om/transact!
+                                            root
+                                            #(assoc %
+                                               :state
+                                               next-state))
+                                           (om/transact!
+                                            root
+                                            #(assoc-in
+                                              %
+                                              [:assignment :finish-before]
+                                              (+ (.getTime (js/Date.))
+                                                 (* 1000 (get-in % [:assignment :allowedTime])))
+                                                       ))
+                                           ))))}
                      "Ja")
                     (dom/a
                      #js {:className "btn btn-primary"
                           :onClick (fn [e]
                                      (.preventDefault e)
-                                     (om/transact! question
-                                                   #( assoc %
-                                                      :answer
-                                                      false))
-                                     (when last?
-                                       (om/transact!
-                                        root
-                                        #(assoc %
-                                           :state
-                                           next-state))))}
+                                     (if (not= false (:requiredAnswer @question))
+                                       (get-questions (:user @root))
+                                       (do
+                                         (om/transact! question
+                                                       #(assoc %
+                                                          :answer
+                                                          false))
+                                         (when last?
+                                           (om/transact!
+                                            root
+                                            #(assoc %
+                                               :state
+                                               next-state))
+                                           (om/transact!
+                                            root
+                                            #(assoc-in
+                                              %
+                                              [:assignment :finish-before]
+                                              (+ (.getTime (js/Date.))
+                                                 (* 1000 (get-in % [:assignment :allowedTime])))
+                                                       ))))))}
                      "Nee")))))))))
 
 
@@ -236,14 +275,15 @@
              :style #js {:width "100%"
                          :text-align "center"}}
         (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "200%"}} "Uitleg opdracht 51"))
+                     :style #js {:font-size "200%"}} (str "Uitleg opdracht "
+                                                          (inc (:points root)))))
        (dom/div
         #js {:className "row"
              :style #js {:width "100%"
                          :text-align "center"}}
         (dom/div #js {:className "col-xs-12"}
-                 (dom/h1 #js {:style #js {:font-size "175%"}} "Zet alle lampen in de woonkamer aan.")
-                 (dom/p nil "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam mi leo, varius cursus ipsum eu, vehicula tincidunt massa. Nulla et erat vel tellus porttitor malesuada quis quis magna. Curabitur et pellentesque urna. Aliquam tristique dolor erat, quis feugiat mauris rhoncus non. Quisque tincidunt euismod enim, id luctus arcu. Aliquam erat volutpat. Nulla egestas purus ligula, id luctus velit mollis sollicitudin. Sed suscipit et nisl quis ullamcorper. Proin convallis auctor iaculis. Donec nec ligula rutrum, vehicula erat vel, fermentum lorem. ")))
+                 (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :description]))
+                 (dom/p nil "")))
        (dom/div
               #js {:className "row"}
               (dom/div
