@@ -45,15 +45,17 @@
 (defn format-number [s] (str (when (<= (count (str s)) 1) "0") s))
 
 (defn calculate-duration [ms]
-  (let [minutes (Math/floor (/ ms
-                               (* 1000 60)))
-        seconds (Math/floor (/ (- ms
-                                  (* minutes 1000 60))
-                               (* 1000)))
-        milli-seconds (- ms
-                         (* minutes 1000 60)
-                         (* seconds 1000))]
-    [minutes seconds milli-seconds]))
+  (if (> 0 ms)
+    [0 0 0]
+    (let [minutes (Math/floor (/ ms
+                                 (* 1000 60)))
+          seconds (Math/floor (/ (- ms
+                                    (* minutes 1000 60))
+                                 (* 1000)))
+          milli-seconds (- ms
+                           (* minutes 1000 60)
+                           (* seconds 1000))]
+      [minutes seconds milli-seconds])))
 
 (.addEventListener
  js/document
