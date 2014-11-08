@@ -1,32 +1,13 @@
 (ns power-app.core
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [ajax.core :refer [GET POST]]))
+            [ajax.core :refer [GET POST]]
+            [cognitect.transit :as t]))
 
 (enable-console-print!)
 
-(def period-enum
-  {:short "Kort"
-   :medium "Middel"
-   :long "Lang"})
-
-(def difficulty-enum
-  {:easy "Makkelijk"
-   :normal "Normaal"
-   :hard "Moeilijk"})
-
-(def assignment-type-enum
-  {:target "Doel"
-   :challenge "Opdracht"})
-
-(def assignment-state-enum
-  {:propose "Voorstelen"
-   :started "Bezig"
-   :failed "Mislukt"
-   :completed "Gelukt"})
-
 (defonce app-state
-  (atom {:userid nil
+  (atom {:user nil
          :deviceready false
          :state :score
          :points 0
@@ -46,35 +27,25 @@
          :settings {:period :short
                     :difficulty :easy}}))
 
+(defonce server-address "http://localhost:8000")
+
+(defn login [username] ;; todo trim
+  (GET (str server-address "/user/" (-> username
+                                        clojure.string/trim
+                                        clojure.string/lower-case))
+       {:handler (fn [result]
+                   (let [r (t/reader :json)
+                         v (t/read r result)]
+                     (swap! app-state assoc :user (get v :user)
+                                            :points (get v :points))))
+        :error (fn [error] (.log js/console "ERROR"))
+        }))
+
 (.addEventListener
  js/document
  "deviceready"
  (fn []
    (swap! app-state #(assoc % :deviceready true))))
-
-(defn create-settings-button [root enum path]
-  (dom/div
-   #js {:className "row"}
-   (dom/div
-    #js {:className "col-xs-12"}
-    (apply
-     dom/div
-     #js {:className "btn-group btn-group-justified"}
-     (map (fn [[k v]]
-            (dom/a
-             #js {:className (str "btn btn-default"
-                                  (when (= (get-in root path)
-                                           k)
-                                    " active"))
-                  :onClick
-                  (fn [e]
-                    (.preventDefault e)
-                    (om/transact!
-                     root
-                     #(assoc-in % path k))
-                    (GET "https://live.mpare.net/users.json"))}
-             v))
-          enum)))))
 
 (defn login-component [root owner opts]
   (reify
@@ -105,84 +76,10 @@
                  (fn [e]
                    (let [name (.-value (om/get-node owner "name"))]
                      (.preventDefault e)
-                     (om/transact! root #(assoc %
-                                           :userid "test"
-                                           :name name))))}
+                     (login name)))}
             "Inloggen")))))))))
 
-(defn assignment-component [{:keys [assignment]
-                             {:keys [state
-                                     type
-                                     title
-                                     description
-                                     data]} :assignment
-                             :as root} owner opts]
-  (reify
-    om/IRenderState
-    (render-state [_ _]
-      (let [proposing? (= state :propose)]
-        (apply
-         dom/div
-         nil
-         (concat
-          [(dom/h2 nil title)]
-          (when proposing?
-            [(dom/p nil description)])
-          (when (not proposing?)
-            [(dom/p
-              nil
-              (:value data)
-              " KwH")])
-          (when (and proposing? (= type :challenge))
-            [(create-settings-button root
-                                     period-enum
-                                     [:settings :period])
-             (create-settings-button root
-                                     difficulty-enum
-                                     [:settings :difficulty])])
-          (when proposing?
-            [(dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
-               (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! assignment
-                                               #(assoc %
-                                                  :state
-                                                  :started)))}
-                 "Accepteren!")
-                (dom/a
-                 #js {:className "btn btn-default"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! assignment
-                                               #(assoc %
-                                                  :type
-                                                  (if (= (:type %) :target)
-                                                    :challenge
-                                                    :target))))}
-                 "Doe toch maar iets anders"))))])
-          (when (not proposing?)
-            [(dom/div
-              #js {:className "row"}
-              (dom/div
-               #js {:className "col-xs-12"}
-               (dom/div
-                #js {:className "btn-group btn-group-justified"}
-                (dom/a
-                 #js {:className "btn btn-primary"
-                      :onClick (fn [e]
-                                 (.preventDefault e)
-                                 (om/transact! assignment
-                                               #( assoc %
-                                                  :state
-                                                  :propose)))}
-                 "Annuleren"))))])))))))
+;; 131.211.252.61 8080
 
 (defn handler [response]
   (.log js/console (str response)))
@@ -197,7 +94,7 @@
              :style #js {:width "100%"
                          :text-align "center"}}
         (dom/h1 #js {:className "col-xs-12"
-                     :style #js {:font-size "1200%"}} 50))
+                     :style #js {:font-size "1200%"}} (:points root)))
        (dom/div
               #js {:className "row"}
               (dom/div
@@ -340,7 +237,7 @@
                     })
 
 (om/root
- (fn [{:keys [userid state] :as root} owner]
+ (fn [{:keys [user state] :as root} owner]
    (reify
      om/IRender
      (render [_]
@@ -351,7 +248,7 @@
             (dom/i #js {:className "fa fa-bolt"})
             " "
             "Where is my power!")
-        (if (not userid)
+        (if (not user)
           (om/build login-component root)
           (om/build (:component (get state-machine state)) root
                     {:opts {:next-state (:next-state (get state-machine state))}}))

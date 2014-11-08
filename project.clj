@@ -10,6 +10,7 @@
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.clojure/clojurescript "0.0-2371" :scope "provided"]
                  [com.cognitect/transit-cljs "0.8.188"]
+                 [com.cognitect/transit-clj "0.8.259"]
                  [cljs-ajax "0.3.3"]
                  [om "0.7.3"]]
 
@@ -24,18 +25,7 @@
                                         :optimizations :none
                                         :pretty-print  true}}}}
 
-  :profiles {:dev {:repl-options {:init-ns power-app.server
-                                  :nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
-
-                   :plugins [[lein-figwheel "0.1.4-SNAPSHOT"]]
-
-                   :figwheel {:http-server-root "public"
-                              :port 3449
-                              :css-dirs ["resources/public/css"]}
-
-                   :env {:is-dev true}}
-
-             :uberjar {:hooks [leiningen.cljsbuild]
+  :profiles {:uberjar {:hooks [leiningen.cljsbuild]
                        :env {:production true}
                        :omit-source true
                        :aot :all
