@@ -148,7 +148,12 @@
                                  :text-align "center"}}
                 (dom/h1 #js {:className "col-xs-12"
                              :style #js {:font-size "250%"}}
-                        (get-in root [:assignment :description])))
+                        (get-in root [:assignment :assignment])))
+               (dom/div
+                #js {:className "row"}
+                (dom/div
+                 #js {:className "col-xs-12"}
+                 (dom/p nil (get-in root [:assignment :description]))))
                (dom/div
                 #js {:className "row"}
                 (dom/div
@@ -286,7 +291,7 @@
                      :style #js {:width "100%"
                                  :text-align "center"}}
                 (dom/div #js {:className "col-xs-12"}
-                         (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :description]))
+                         (dom/h1 #js {:style #js {:font-size "175%"}} (get-in root [:assignment :assignment]))
                          (dom/p nil
                                 (let [result (get-in root [:assignment :result])]
                                   (if (nil? result)
