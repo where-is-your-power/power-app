@@ -4,7 +4,13 @@
 
 (enable-console-print!)
 
-(defonce app-state (atom {:text "Hello Chestnut!"}))
+(defonce app-state (atom {:deviceready false
+                          :text "Hello Chestnut!"}))
+
+(.addEventListener js/document
+                   "deviceready"
+                   (fn []
+                     (swap! app-state #(assoc % :deviceready true))))
 
 (defn main []
   (.log js/console "starting CLJS...")
@@ -13,7 +19,10 @@
       (reify
         om/IRender
         (render [_]
-          (dom/h1 nil (:text app)))))
+          (dom/div
+           nil
+           (dom/h1 nil (:text app))
+           (pr-str app)))))
     app-state
     {:target (. js/document (getElementById "app"))}))
 
