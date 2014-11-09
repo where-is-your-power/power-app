@@ -16,7 +16,7 @@
          :questions []
          :assignment {}}))
 
-(defonce server-address "http://power-app.0x7be.com:8080")
+(defonce server-address "http://power-app.0x7be.com")
 
 (defn error-handler [{:keys [status status-text]}]
   (.log js/console (str "something bad happened: " status " " status-text)))
