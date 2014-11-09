@@ -5,5 +5,8 @@ install leiningen
 install phonegap
 
     lein cljsbuild once
-    phonegap install android
+    
+####Testing:
+    phonegap run android --emulator
+####Building apk: 
     phonegap local build android
